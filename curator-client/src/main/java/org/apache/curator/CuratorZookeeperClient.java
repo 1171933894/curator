@@ -114,16 +114,22 @@ public class CuratorZookeeperClient implements Closeable
             int sessionTimeoutMs, int connectionTimeoutMs, int waitForShutdownTimeoutMs, Watcher watcher,
             RetryPolicy retryPolicy, boolean canBeReadOnly)
     {
+        //3.0.0版本后默认为StandardInternalConnectionHandler，之前session Expired是由服务端告知才会触发Expired事件，
+        //StandardConnectionHandler当收到Disconnect事件后，如果在规定时间内没有重连到服务器，则会主动触发Expired事件
         if ( sessionTimeoutMs < connectionTimeoutMs )
         {
             log.warn(String.format("session timeout [%d] is less than connection timeout [%d]", sessionTimeoutMs, connectionTimeoutMs));
         }
-
+        //重新尝试连接的策略
         retryPolicy = Preconditions.checkNotNull(retryPolicy, "retryPolicy cannot be null");
         ensembleProvider = Preconditions.checkNotNull(ensembleProvider, "ensembleProvider cannot be null");
 
         this.connectionTimeoutMs = connectionTimeoutMs;
         this.waitForShutdownTimeoutMs = waitForShutdownTimeoutMs;
+        //curator注册到原生客户端上的defaultWatcher,会收到和连接状态有关的事件通知等，负责超时重连
+        /**
+         * ConnectionState是注册到原生客户端上的defaultWatcher
+         */
         state = new ConnectionState(zookeeperFactory, ensembleProvider, sessionTimeoutMs, watcher, tracer, canBeReadOnly);
         setRetryPolicy(retryPolicy);
     }

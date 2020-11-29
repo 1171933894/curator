@@ -108,7 +108,9 @@ public class CuratorFrameworkImpl implements CuratorFramework
 
     public CuratorFrameworkImpl(CuratorFrameworkFactory.Builder builder)
     {
+        //定义创建原生客户端实例zookeeper的工厂方法
         ZookeeperFactory localZookeeperFactory = makeZookeeperFactory(builder.getZookeeperFactory());
+        //zookeeper的包装类，可处理curator较低层次的会话保持和同步请求等
         this.client = new CuratorZookeeperClient
             (
                 localZookeeperFactory,
@@ -129,19 +131,28 @@ public class CuratorFrameworkImpl implements CuratorFramework
                 builder.canBeReadOnly()
             );
 
+        //用于判断连接断开和连接超时的状态，设置curator的连接状态，并通过connectionStateManager触发连接事件状态通知
         internalConnectionHandler = new StandardInternalConnectionHandler();
+        //接收事件的通知。后台线程操作事件和连接状态事件会触发
         listeners = StandardListenerManager.standard();
+        //当后台线程发生异常或者handler发生异常的时候会触发
         unhandledErrorListeners = StandardListenerManager.standard();
+        //后台线程执行的操作队列
         backgroundOperations = new DelayQueue<OperationAndData<?>>();
         forcedSleepOperations = new LinkedBlockingQueue<>();
+        //命名空间
         namespace = new NamespaceImpl(this, builder.getNamespace());
+        //线程工厂方法，初始化后台线程池时会使用
         threadFactory = getThreadFactory(builder);
         maxCloseWaitMs = builder.getMaxCloseWaitMs();
+        //负责连接状态变化时的通知
         connectionStateManager = new ConnectionStateManager(this, builder.getThreadFactory(), builder.getSessionTimeoutMs(), builder.getSimulatedSessionExpirationPercent(), builder.getConnectionStateListenerManagerFactory());
         compressionProvider = builder.getCompressionProvider();
         aclProvider = builder.getAclProvider();
+        //CuratorFrameworkImpl的状态，调用start方法之前为 LATENT，调用start方法之后为 STARTED ,调用close()方法之后为STOPPED
         state = new AtomicReference<CuratorFrameworkState>(CuratorFrameworkState.LATENT);
         useContainerParentsIfAvailable = builder.useContainerParentsIfAvailable();
+        //错误连接策略
         connectionStateErrorPolicy = Preconditions.checkNotNull(builder.getConnectionStateErrorPolicy(), "errorPolicy cannot be null");
         schemaSet = Preconditions.checkNotNull(builder.getSchemaSet(), "schemaSet cannot be null");
 
@@ -149,10 +160,12 @@ public class CuratorFrameworkImpl implements CuratorFramework
         defaultData = (builderDefaultData != null) ? Arrays.copyOf(builderDefaultData, builderDefaultData.length) : new byte[0];
         authInfos = buildAuths(builder);
 
+        //有保障的执行删除操作，其实是不断尝试直到删除成功，通过递归调用实现
         failedDeleteManager = new FailedDeleteManager(this);
+        //有保障的执行删除watch操作
         failedRemoveWatcherManager = new FailedRemoveWatchManager(this);
         namespaceFacadeCache = new NamespaceFacadeCache(this);
-
+        //服务端可用节点的检测器，第一次连接和重连成功之后都会触发重新获取服务端列表
         ensembleTracker = builder.withEnsembleTracker() ? new EnsembleTracker(this, builder.getEnsembleProvider()) : null;
 
         runSafeService = makeRunSafeService(builder);
@@ -298,6 +311,9 @@ public class CuratorFrameworkImpl implements CuratorFramework
         return connectionStateErrorPolicy;
     }
 
+    /**
+     * 分别启动ConnectionStateManager和CuratorZookeeperClient。启动ConnectionStateManager可做好连接事件通知的准备，启动CuratorZookeeperClient建立与服务端的会话连接
+     */
     @Override
     public void start()
     {
@@ -309,6 +325,7 @@ public class CuratorFrameworkImpl implements CuratorFramework
 
         try
         {
+            //启动connectionStateManager
             connectionStateManager.start(); // ordering dependency - must be called before client.start()
 
             final ConnectionStateListener listener = new ConnectionStateListener()
@@ -330,7 +347,7 @@ public class CuratorFrameworkImpl implements CuratorFramework
             };
 
             this.getConnectionStateListenable().addListener(listener);
-
+            //建立与服务端的连接
             client.start();
 
             executorService = Executors.newSingleThreadScheduledExecutor(threadFactory);
@@ -1043,9 +1060,11 @@ public class CuratorFrameworkImpl implements CuratorFramework
     {
         if ( curatorEvent.getType() == CuratorEventType.WATCHED )
         {
+            //状态转换
             validateConnection(curatorEvent.getWatchedEvent().getState());
         }
 
+        //通知所有注册的CuratorListener
         listeners.forEach(listener ->
         {
             try

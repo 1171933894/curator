@@ -61,6 +61,7 @@ class ConnectionState implements Watcher, Closeable
         this.tracer = tracer;
         if ( parentWatcher != null )
         {
+            //因为defaultWatcher只能有一个，通过parentWatchers可实现defaultWatcher接到事件通知时parentWatchers的回调
             parentWatchers.offer(parentWatcher);
         }
 
@@ -156,20 +157,24 @@ class ConnectionState implements Watcher, Closeable
 
         if ( event.getType() == Watcher.Event.EventType.None )
         {
+            //isConnected：客户当前的连接状态，true表示已连接（SyncConnected和ConnectedReadOnly状态）
             boolean wasConnected = isConnected.get();
             boolean newIsConnected = checkState(event.getState(), wasConnected);
             if ( newIsConnected != wasConnected )
             {
+                //如果连接状态发生改变，则更新
                 isConnected.set(newIsConnected);
                 connectionStartMs = System.currentTimeMillis();
                 if ( newIsConnected )
                 {
+                    //说明是重连，更新会话超时协商时间
                     lastNegotiatedSessionTimeoutMs.set(handleHolder.getNegotiatedSessionTimeoutMs());
                     log.debug("Negotiated session timeout: " + lastNegotiatedSessionTimeoutMs.get());
                 }
             }
         }
 
+        //通知parentWatchers,注意初始化的时候其实传入了一个parentWatcher,会调用CuratorFrameworkImpl.processEvent
         for ( Watcher parentWatcher : parentWatchers )
         {
             OperationTrace trace = new OperationTrace("connection-state-parent-process", tracer.get(), getSessionId());
@@ -269,6 +274,7 @@ class ConnectionState implements Watcher, Closeable
 
         if ( checkNewConnectionString )
         {
+            //如果服务端列表发生变化，则更新
             String newConnectionString = handleHolder.getNewConnectionString();
             if ( newConnectionString != null )
             {

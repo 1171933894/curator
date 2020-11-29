@@ -63,12 +63,14 @@ public class ConnectionStateManager implements Closeable
     }
 
     private final Logger log = LoggerFactory.getLogger(getClass());
+    //连接状态事件通知队列
     private final BlockingQueue<ConnectionState> eventQueue = new ArrayBlockingQueue<ConnectionState>(QUEUE_SIZE);
     private final CuratorFramework client;
     private final int sessionTimeoutMs;
     private final int sessionExpirationPercent;
     private final AtomicBoolean initialConnectMessageSent = new AtomicBoolean(false);
     private final ExecutorService service;
+    //ConnectionStateManager的运行状态
     private final AtomicReference<State> state = new AtomicReference<State>(State.LATENT);
     private final UnaryListenerManager<ConnectionStateListener> listeners;
 
@@ -111,6 +113,7 @@ public class ConnectionStateManager implements Closeable
         {
             threadFactory = ThreadUtils.newThreadFactory("ConnectionStateManager");
         }
+        //事件队列处理线程池
         service = Executors.newSingleThreadExecutor(threadFactory);
         listeners = managerFactory.newManager(client);
     }

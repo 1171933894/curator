@@ -20,3 +20,9 @@ For more details:
 - Best source of help for Curator: [Stack Overflow's Curator tag](https://stackoverflow.com/questions/tagged/apache-curator)
 - Apache ZooKeeper Website: https://zookeeper.apache.org
 - Curator's Wiki: http://cwiki.apache.org/confluence/display/CURATOR
+
+
+一般生产环境我们使用curator，它主要解决了三类问题：
+1.封装ZooKeeper client与ZooKeeper server之间的连接处理，当会话超时时可自动重连。
+2.提供了一套流式风格的操作API
+3.提供ZooKeeper各种分布式协调应用场景(recipe, 比如leader选举，分布式锁，分布式缓存等)的抽象封装。
